@@ -51,7 +51,19 @@ public class SecurityConfig {
                 .authorizeHttpRequests(request -> request
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-resources/*", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/api/v1/cities/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/airports/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/flights/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/users/**").hasRole("ADMIN")
+
+                        // туры и вылеты туров — админ + менеджер
+                        .requestMatchers("/api/v1/tours/**").hasAnyRole("ADMIN", "MANAGER")
+                        .requestMatchers("/api/v1/tour-departures/**").hasAnyRole("ADMIN", "MANAGER")
+
+                        // бронирования — обычные пользователи + менеджеры + админы
+                        .requestMatchers("/api/v1/bookings/**").hasAnyRole("USER", "MANAGER", "ADMIN")
                         .requestMatchers("/endpoint", "/admin/**").hasRole("ADMIN")
+
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())

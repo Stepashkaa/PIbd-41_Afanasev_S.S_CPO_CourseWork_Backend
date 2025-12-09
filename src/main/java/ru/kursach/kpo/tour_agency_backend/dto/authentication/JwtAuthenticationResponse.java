@@ -1,4 +1,4 @@
-package ru.kursach.kpo.tour_agency_backend.dto;
+package ru.kursach.kpo.tour_agency_backend.dto.authentication;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;

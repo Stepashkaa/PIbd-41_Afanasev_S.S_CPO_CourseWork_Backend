@@ -8,10 +8,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import ru.kursach.kpo.tour_agency_backend.dto.JwtAuthenticationResponse;
-import ru.kursach.kpo.tour_agency_backend.dto.SignInRequest;
-import ru.kursach.kpo.tour_agency_backend.dto.SignUpRequest;
-import ru.kursach.kpo.tour_agency_backend.service.AuthService;
+import ru.kursach.kpo.tour_agency_backend.dto.authentication.JwtAuthenticationResponse;
+import ru.kursach.kpo.tour_agency_backend.dto.authentication.SignInRequest;
+import ru.kursach.kpo.tour_agency_backend.dto.authentication.SignUpRequest;
+import ru.kursach.kpo.tour_agency_backend.service.authentication.AuthService;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j

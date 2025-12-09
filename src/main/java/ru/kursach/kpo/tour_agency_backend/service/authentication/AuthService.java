@@ -1,4 +1,4 @@
-package ru.kursach.kpo.tour_agency_backend.service;
+package ru.kursach.kpo.tour_agency_backend.service.authentication;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -6,9 +6,9 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import ru.kursach.kpo.tour_agency_backend.dto.JwtAuthenticationResponse;
-import ru.kursach.kpo.tour_agency_backend.dto.SignInRequest;
-import ru.kursach.kpo.tour_agency_backend.dto.SignUpRequest;
+import ru.kursach.kpo.tour_agency_backend.dto.authentication.JwtAuthenticationResponse;
+import ru.kursach.kpo.tour_agency_backend.dto.authentication.SignInRequest;
+import ru.kursach.kpo.tour_agency_backend.dto.authentication.SignUpRequest;
 import ru.kursach.kpo.tour_agency_backend.model.entity.UserEntity;
 import ru.kursach.kpo.tour_agency_backend.model.enums.UserRole;
 import ru.kursach.kpo.tour_agency_backend.repository.UserRepository;

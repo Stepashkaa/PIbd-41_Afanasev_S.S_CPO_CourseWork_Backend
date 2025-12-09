@@ -7,6 +7,9 @@ import jakarta.validation.constraints.Size;
 import lombok.*;
 import ru.kursach.kpo.tour_agency_backend.model.enums.UserRole;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -55,4 +58,33 @@ public class UserEntity {
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
+    @OneToMany(mappedBy = "managerUser", fetch = FetchType.LAZY)
+    @Builder.Default
+    @ToString.Exclude
+    private List<TourEntity> managedTours = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
+    @Builder.Default
+    @ToString.Exclude
+    private List<BookingEntity> bookings = new ArrayList<>();
+
+    public void addManagedTour(TourEntity tour) {
+        managedTours.add(tour);
+        tour.setManagerUser(this);
+    }
+
+    public void removeManagedTour(TourEntity tour) {
+        managedTours.remove(tour);
+        tour.setManagerUser(null);
+    }
+
+    public void addBooking(BookingEntity booking) {
+        bookings.add(booking);
+        booking.setUser(this);
+    }
+
+    public void removeBooking(BookingEntity booking) {
+        bookings.remove(booking);
+        booking.setUser(null);
+    }
 }

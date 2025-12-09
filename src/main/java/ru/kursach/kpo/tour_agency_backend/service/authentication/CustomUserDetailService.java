@@ -1,4 +1,4 @@
-package ru.kursach.kpo.tour_agency_backend.service;
+package ru.kursach.kpo.tour_agency_backend.service.authentication;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;

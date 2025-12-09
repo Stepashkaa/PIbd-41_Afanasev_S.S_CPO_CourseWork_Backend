@@ -15,7 +15,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import ru.kursach.kpo.tour_agency_backend.service.JwtService;
+import ru.kursach.kpo.tour_agency_backend.service.authentication.JwtService;
 
 import java.io.IOException;
 
