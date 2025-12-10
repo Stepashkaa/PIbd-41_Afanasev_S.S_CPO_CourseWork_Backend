@@ -36,4 +36,21 @@ public interface TourDepartureRepository extends JpaRepository<TourDepartureEnti
             @Param("startTo") LocalDate startTo,
             org.springframework.data.domain.Pageable pageable
     );
+
+    @Query("""
+           SELECT d
+           FROM TourDepartureEntity d
+           JOIN d.tour t
+           WHERE t.baseCity.id IN :cityIds
+             AND (:status IS NULL OR d.status = :status)
+             AND (:startFrom IS NULL OR d.startDate >= :startFrom)
+             AND (:startTo IS NULL OR d.startDate <= :startTo)
+           """)
+    Page<TourDepartureEntity> searchByBaseCities(
+            @Param("cityIds") List<Long> cityIds,
+            @Param("status") TourDepartureStatus status,
+            @Param("startFrom") LocalDate startFrom,
+            @Param("startTo") LocalDate startTo,
+            org.springframework.data.domain.Pageable pageable
+    );
 }

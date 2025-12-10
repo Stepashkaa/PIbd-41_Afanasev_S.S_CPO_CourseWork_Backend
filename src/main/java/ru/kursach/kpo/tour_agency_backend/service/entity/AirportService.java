@@ -37,9 +37,17 @@ public class AirportService {
             int page,
             int size
     ) {
-        String iata = iataFilter != null ? iataFilter.trim() : "";
-        String name = nameFilter != null ? nameFilter.trim() : "";
-        String cityName = cityNameFilter != null ? cityNameFilter.trim() : "";
+        String iata = (iataFilter != null && !iataFilter.isBlank())
+                ? iataFilter.trim().toLowerCase()
+                : "";
+
+        String name = (nameFilter != null && !nameFilter.isBlank())
+                ? nameFilter.trim().toLowerCase()
+                : "";
+
+        String cityName = (cityNameFilter != null && !cityNameFilter.isBlank())
+                ? cityNameFilter.trim().toLowerCase()
+                : "";
 
         PageRequest pageable = PageRequest.of(
                 page,
@@ -47,13 +55,12 @@ public class AirportService {
                 Sort.by("iataCode").ascending().and(Sort.by("name").ascending())
         );
 
-        Page<AirportEntity> airportPage =
-                airportRepository.findByIataCodeContainingIgnoreCaseAndNameContainingIgnoreCaseAndCity_NameContainingIgnoreCase(
-                        iata,
-                        name,
-                        cityName,
-                        pageable
-                );
+        Page<AirportEntity> airportPage = airportRepository.search(
+                iata,
+                name,
+                cityName,
+                pageable
+        );
 
         return PageResponseDto.<AirportResponseDto>builder()
                 .page(airportPage.getNumber())

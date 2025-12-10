@@ -27,6 +27,19 @@ public class TourDepartureController {
 
     private final TourDepartureService tourDepartureService;
 
+    @Operation(summary = "Получить вылеты туров, подходящие для рейса (по городам рейса)")
+    @GetMapping("/for-flight/{flightId}")
+    public PageResponseDto<TourDepartureResponseDto> getForFlight(
+            @PathVariable Long flightId,
+            @RequestParam(name = "status", required = false) TourDepartureStatus status,
+            @RequestParam(name = "startFrom", required = false) LocalDate startFrom,
+            @RequestParam(name = "startTo", required = false) LocalDate startTo,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = Constants.DEFAULT_PAGE_SIZE) int size
+    ) {
+        return tourDepartureService.getForFlight(flightId, status, startFrom, startTo, page, size);
+    }
+
     @Operation(summary = "Получить список вылетов туров с пагинацией и фильтрацией")
     @GetMapping("/paged")
     public PageResponseDto<TourDepartureResponseDto> getAllPaged(

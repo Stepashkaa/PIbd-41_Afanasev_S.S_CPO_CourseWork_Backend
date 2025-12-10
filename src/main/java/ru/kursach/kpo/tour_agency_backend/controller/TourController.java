@@ -64,15 +64,10 @@ public class TourController {
         return tourService.getById(id);
     }
 
-    @Operation(summary = "Получить список туров с фильтрацией")
+    @Operation(summary = "Получить список всех туров (без фильтрации)")
     @GetMapping
-    public List<TourResponseDto> getAll(
-            @RequestParam(name = "baseCityId", required = false) Long baseCityId,
-            @RequestParam(name = "status", required = false) TourStatus status,
-            @RequestParam(name = "active", required = false) Boolean active,
-            @RequestParam(name = "managerUserId", required = false) Long managerUserId
-    ) {
-        return tourService.getAll(baseCityId, status, active, managerUserId);
+    public List<TourResponseDto> getAll() {
+        return tourService.getAll();
     }
 
     @Operation(summary = "Обновить тур")

@@ -25,17 +25,45 @@ public class FlightController {
 
     private final FlightService flightService;
 
-    @GetMapping("/paged")
-    public PageResponseDto<FlightResponseDto> getAllPaged(
-            @RequestParam(required = false) String number,
-            @RequestParam(required = false) String departure,
-            @RequestParam(required = false) String arrival,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = Constants.DEFAULT_PAGE_SIZE) int size
+    @GetMapping("/for-departure/{departureId}")
+    public PageResponseDto<FlightResponseDto> getFlightsForDeparture(
+            @PathVariable Long departureId,
+            @RequestParam(name = "flightNumber", required = false) String flightNumber,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = Constants.DEFAULT_PAGE_SIZE) int size
     ) {
-        return flightService.getAllPaged(number, departure, arrival, page, size);
+        return flightService.getFlightsForDeparture(departureId, flightNumber, page, size);
     }
 
+    @Operation(summary = "Получить список рейсов, подходящих для базового города тура")
+    @GetMapping("/for-tour/{tourId}")
+    public PageResponseDto<FlightResponseDto> getFlightsForTourBaseCity(
+            @PathVariable Long tourId,
+            @RequestParam(name = "flightNumber", required = false) String flightNumber,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = Constants.DEFAULT_PAGE_SIZE) int size
+    ) {
+        return flightService.getFlightsForTourBaseCity(tourId, flightNumber, page, size);
+    }
+    @Operation(summary = "Получить список рейсов с фильтрацией и пагинацией")
+    @GetMapping("/paged")
+    public PageResponseDto<FlightResponseDto> getAllPaged(
+            @RequestParam(name = "flightNumber", required = false) String flightNumber,
+            @RequestParam(name = "departureAirportName", required = false) String departureAirportName,
+            @RequestParam(name = "arrivalAirportName", required = false) String arrivalAirportName,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = Constants.DEFAULT_PAGE_SIZE) int size
+    ) {
+        return flightService.getAllPaged(
+                flightNumber,
+                departureAirportName,
+                arrivalAirportName,
+                page,
+                size
+        );
+    }
+
+    @Operation(summary = "Найти рейс по точному номеру рейса")
     @GetMapping("/search")
     public FlightResponseDto search(@RequestParam String number) {
         return flightService.findByFlightNumber(number);

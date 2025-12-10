@@ -121,11 +121,8 @@ public class TourService {
     }
 
     @Transactional(readOnly = true)
-    public List<TourResponseDto> getAll(Long baseCityId,
-                                        TourStatus status,
-                                        Boolean active,
-                                        Long managerUserId) {
-        return tourRepository.search(baseCityId, status, active, managerUserId).stream()
+    public List<TourResponseDto> getAll() {
+        return tourRepository.findAll(Sort.by("title").ascending()).stream()
                 .map(tourMapper::toDto)
                 .toList();
     }

@@ -87,6 +87,61 @@ public class TourDepartureService {
         return getAllPaged(tourId, null, null, null, page, size);
     }
 
+    @Transactional(readOnly = true)
+    public PageResponseDto<TourDepartureResponseDto> getForFlight(
+            Long flightId,
+            TourDepartureStatus status,
+            LocalDate startFrom,
+            LocalDate startTo,
+            int page,
+            int size
+    ) {
+        FlightEntity flight = flightRepository.findById(flightId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Рейс с id=" + flightId + " не найден"
+                ));
+
+        Long depCityId = flight.getDepartureAirport().getCity().getId();
+        Long arrCityId = flight.getArrivalAirport().getCity().getId();
+
+        List<Long> cityIds = depCityId.equals(arrCityId)
+                ? List.of(depCityId)
+                : List.of(depCityId, arrCityId);
+
+        // если даты не переданы с фронта — используем даты рейса
+        LocalDate flightFrom = flight.getDepartAt().toLocalDate();
+        LocalDate flightTo   = flight.getArriveAt().toLocalDate();
+
+        LocalDate effectiveFrom = (startFrom != null) ? startFrom : flightFrom;
+        LocalDate effectiveTo   = (startTo   != null) ? startTo   : flightTo;
+
+        var pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by("startDate").ascending().and(Sort.by("id").ascending())
+        );
+
+        Page<TourDepartureEntity> departuresPage = tourDepartureRepository.searchByBaseCities(
+                cityIds,
+                status,
+                effectiveFrom,
+                effectiveTo,
+                pageable
+        );
+
+        return PageResponseDto.<TourDepartureResponseDto>builder()
+                .page(departuresPage.getNumber())
+                .size(departuresPage.getSize())
+                .totalPages(departuresPage.getTotalPages())
+                .totalElements(departuresPage.getTotalElements())
+                .content(departuresPage.getContent().stream()
+                        .map(tourDepartureMapper::toDto)
+                        .toList())
+                .build();
+    }
+
+
     @Transactional
     public TourDepartureResponseDto create(TourDepartureCreateRequest request) {
 
@@ -119,7 +174,10 @@ public class TourDepartureService {
                         "Некоторые flightIds не существуют");
             }
 
-            flights.forEach(departure::addFlight);
+            for (FlightEntity flight : flights) {
+                validateFlightForDeparture(flight, departure);
+                departure.addFlight(flight);
+            }
         }
 
         departure = tourDepartureRepository.save(departure);
@@ -193,12 +251,15 @@ public class TourDepartureService {
 
             for (FlightEntity f : newFlights) {
                 if (!departure.getFlights().contains(f)) {
+                    validateFlightForDeparture(f, departure);
                     departure.addFlight(f);
                 }
             }
         }
 
         tourDepartureMapper.updateEntity(request, newTour, departure);
+
+        validateAllFlightsForDeparture(departure);
 
         departure = tourDepartureRepository.save(departure);
         return tourDepartureMapper.toDto(departure);
@@ -232,6 +293,12 @@ public class TourDepartureService {
 
     private void validateCapacity(Integer capacityTotal, Integer capacityReserved) {
         int reserved = capacityReserved != null ? capacityReserved : 0;
+        if (capacityTotal == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Вместимость (capacityTotal) обязательна"
+            );
+        }
         if (reserved > capacityTotal) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -252,6 +319,47 @@ public class TourDepartureService {
                     "Переопределённая цена должна быть меньше базовой цены тура (" +
                             tour.getBasePrice() + ")"
             );
+        }
+    }
+
+    /**
+     * Проверка, что рейс логически подходит к вылету тура:
+     * 1) связан с базовым городом тура;
+     * 2) даты рейса пересекаются с датами вылета тура.
+     */
+    private void validateFlightForDeparture(FlightEntity flight, TourDepartureEntity departure) {
+        Long baseCityId = departure.getTour().getBaseCity().getId();
+        Long depCityId = flight.getDepartureAirport().getCity().getId();
+        Long arrCityId = flight.getArrivalAirport().getCity().getId();
+
+        if (!depCityId.equals(baseCityId) && !arrCityId.equals(baseCityId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Рейс " + flight.getFlightNumber() +
+                            " не связан с базовым городом тура " +
+                            departure.getTour().getBaseCity().getName()
+            );
+        }
+
+        LocalDate depStart = departure.getStartDate();
+        LocalDate depEnd = departure.getEndDate();
+        LocalDate flightDepartDate = flight.getDepartAt().toLocalDate();
+        LocalDate flightArriveDate = flight.getArriveAt().toLocalDate();
+
+        // Проверка пересечения интервалов [flightDepartDate, flightArriveDate] и [depStart, depEnd]
+        if (flightArriveDate.isBefore(depStart) || flightDepartDate.isAfter(depEnd)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Даты рейса " + flight.getFlightNumber() +
+                            " не пересекаются с диапазоном дат вылета тура (" +
+                            depStart + " - " + depEnd + ")"
+            );
+        }
+    }
+
+    private void validateAllFlightsForDeparture(TourDepartureEntity departure) {
+        for (FlightEntity flight : departure.getFlights()) {
+            validateFlightForDeparture(flight, departure);
         }
     }
 }

@@ -17,10 +17,13 @@ import ru.kursach.kpo.tour_agency_backend.mapper.FlightMapper;
 import ru.kursach.kpo.tour_agency_backend.model.entity.AirportEntity;
 import ru.kursach.kpo.tour_agency_backend.model.entity.FlightEntity;
 import ru.kursach.kpo.tour_agency_backend.model.entity.TourDepartureEntity;
+import ru.kursach.kpo.tour_agency_backend.model.entity.TourEntity;
 import ru.kursach.kpo.tour_agency_backend.repository.AirportRepository;
 import ru.kursach.kpo.tour_agency_backend.repository.FlightRepository;
 import ru.kursach.kpo.tour_agency_backend.repository.TourDepartureRepository;
+import ru.kursach.kpo.tour_agency_backend.repository.TourRepository;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -30,19 +33,77 @@ public class FlightService {
     private final FlightRepository flightRepository;
     private final AirportRepository airportRepository;
     private final TourDepartureRepository tourDepartureRepository;
+    private final TourRepository tourRepository;
     private final FlightMapper flightMapper;
 
     @Transactional(readOnly = true)
-    public PageResponseDto<FlightResponseDto> getAllPaged(
-            String flightNumber,
-            String departureAirportName,
-            String arrivalAirportName,
+    public PageResponseDto<FlightResponseDto> getFlightsForDeparture(
+            Long departureId,
+            String flightNumberFilter,
             int page,
             int size
     ) {
-        String numberFilter = flightNumber != null ? flightNumber.trim() : "";
-        String depFilter = departureAirportName != null ? departureAirportName.trim() : "";
-        String arrFilter = arrivalAirportName != null ? arrivalAirportName.trim() : "";
+        TourDepartureEntity departure = tourDepartureRepository.findById(departureId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Вылет тура с id=" + departureId + " не найден"
+                ));
+
+        TourEntity tour = departure.getTour();
+        Long cityId = tour.getBaseCity().getId();
+
+        String flightNumber = (flightNumberFilter != null && !flightNumberFilter.isBlank())
+                ? flightNumberFilter.trim()
+                : null;
+
+        PageRequest pageable = PageRequest.of(page, size, Sort.by("flightNumber").ascending());
+
+        Page<FlightEntity> flights = flightRepository.searchByCityAndNumber(
+                cityId,
+                flightNumber,
+                pageable
+        );
+
+        LocalDate depStart = departure.getStartDate();
+        LocalDate depEnd = departure.getEndDate();
+
+        List<FlightResponseDto> content = flights.getContent().stream()
+                .filter(f -> {
+                    LocalDate fd = f.getDepartAt().toLocalDate();
+                    LocalDate fa = f.getArriveAt().toLocalDate();
+                    return !(fa.isBefore(depStart) || fd.isAfter(depEnd)); // пересечение интервалов
+                })
+                .map(flightMapper::toDto)
+                .toList();
+
+        return PageResponseDto.<FlightResponseDto>builder()
+                .page(flights.getNumber())
+                .size(flights.getSize())
+                .totalPages(flights.getTotalPages())
+                .totalElements(flights.getTotalElements())
+                .content(content)
+                .build();
+    }
+
+
+    @Transactional(readOnly = true)
+    public PageResponseDto<FlightResponseDto> getFlightsForTourBaseCity(
+            Long tourId,
+            String flightNumberFilter,
+            int page,
+            int size
+    ) {
+        TourEntity tour = tourRepository.findById(tourId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Тур с id=" + tourId + " не найден"
+                ));
+
+        Long cityId = tour.getBaseCity().getId();
+
+        String flightNumber = (flightNumberFilter != null && !flightNumberFilter.isBlank())
+                ? flightNumberFilter.trim()
+                : null;
 
         PageRequest pageable = PageRequest.of(
                 page,
@@ -50,21 +111,62 @@ public class FlightService {
                 Sort.by("flightNumber").ascending()
         );
 
-        Page<FlightEntity> flightPage = flightRepository
-                .findByFlightNumberContainingIgnoreCaseAndDepartureAirport_NameContainingIgnoreCaseAndArrivalAirport_NameContainingIgnoreCase(
-                        numberFilter,
-                        depFilter,
-                        arrFilter,
-                        pageable
-                );
+        Page<FlightEntity> flights = flightRepository.searchByCityAndNumber(
+                cityId,
+                flightNumber,
+                pageable
+        );
+
+        return PageResponseDto.<FlightResponseDto>builder()
+                .page(flights.getNumber())
+                .size(flights.getSize())
+                .totalPages(flights.getTotalPages())
+                .totalElements(flights.getTotalElements())
+                .content(flights.getContent().stream()
+                        .map(flightMapper::toDto)
+                        .toList())
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponseDto<FlightResponseDto> getAllPaged(
+            String flightNumberFilter,
+            String departureAirportNameFilter,
+            String arrivalAirportNameFilter,
+            int page,
+            int size
+    ) {
+        String flightNumber = (flightNumberFilter != null && !flightNumberFilter.trim().isEmpty())
+                ? flightNumberFilter.trim().toLowerCase()
+                : "";
+
+        String departureAirportName = (departureAirportNameFilter != null && !departureAirportNameFilter.trim().isEmpty())
+                ? departureAirportNameFilter.trim().toLowerCase()
+                : "";
+
+        String arrivalAirportName = (arrivalAirportNameFilter != null && !arrivalAirportNameFilter.trim().isEmpty())
+                ? arrivalAirportNameFilter.trim().toLowerCase()
+                : "";
+
+        PageRequest pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by("flightNumber").ascending()
+        );
+
+        Page<FlightEntity> flightPage = flightRepository.search(
+                flightNumber,
+                departureAirportName,
+                arrivalAirportName,
+                pageable
+        );
 
         return PageResponseDto.<FlightResponseDto>builder()
                 .page(flightPage.getNumber())
                 .size(flightPage.getSize())
                 .totalPages(flightPage.getTotalPages())
                 .totalElements(flightPage.getTotalElements())
-                .content(flightPage.getContent()
-                        .stream()
+                .content(flightPage.getContent().stream()
                         .map(flightMapper::toDto)
                         .toList())
                 .build();
@@ -191,6 +293,8 @@ public class FlightService {
         }
 
         flightMapper.updateEntity(request, flight);
+
+        validateAllDeparturesForFlight(flight);
         flight = flightRepository.save(flight);
 
         return flightMapper.toDto(flight);
@@ -248,6 +352,8 @@ public class FlightService {
             );
         }
 
+        validateDepartureForFlight(departure, flight);
+
         flight.addTourDeparture(departure);
 
         flight = flightRepository.save(flight);
@@ -289,4 +395,50 @@ public class FlightService {
             );
         }
     }
+
+    /**
+     * Зеркальная логика для проверки вылета тура относительно рейса:
+     * 1) базовый город тура = город вылета или прилёта рейса;
+     * 2) даты рейса пересекаются с датами вылета тура.
+     */
+    private void validateDepartureForFlight(TourDepartureEntity departure, FlightEntity flight) {
+        Long baseCityId = departure.getTour().getBaseCity().getId();
+        Long depCityId = flight.getDepartureAirport().getCity().getId();
+        Long arrCityId = flight.getArrivalAirport().getCity().getId();
+
+        if (!depCityId.equals(baseCityId) && !arrCityId.equals(baseCityId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Вылет тура с id=" + departure.getId() +
+                            " относится к базовому городу " +
+                            departure.getTour().getBaseCity().getName() +
+                            ", который не совпадает с городами рейса " +
+                            flight.getFlightNumber()
+            );
+        }
+
+        LocalDate depStart = departure.getStartDate();
+        LocalDate depEnd = departure.getEndDate();
+        LocalDate flightDepartDate = flight.getDepartAt().toLocalDate();
+        LocalDate flightArriveDate = flight.getArriveAt().toLocalDate();
+
+        if (flightArriveDate.isBefore(depStart) || flightDepartDate.isAfter(depEnd)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Даты рейса " + flight.getFlightNumber() +
+                            " не пересекаются с диапазоном дат вылета тура (" +
+                            depStart + " - " + depEnd + ")"
+            );
+        }
+    }
+    /**
+     * Повторно валидирует все вылеты тура, уже привязанные к рейсу.
+     * Нужен на случай, когда у рейса меняются аэропорты или даты.
+     */
+    private void validateAllDeparturesForFlight(FlightEntity flight) {
+        for (TourDepartureEntity departure : flight.getTourDepartures()) {
+            validateDepartureForFlight(departure, flight);
+        }
+    }
+
 }

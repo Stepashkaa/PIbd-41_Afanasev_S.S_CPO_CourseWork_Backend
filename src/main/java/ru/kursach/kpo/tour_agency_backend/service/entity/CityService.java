@@ -79,6 +79,35 @@ public class CityService {
         return cityMapper.toDto(city);
     }
 
+    @Transactional(readOnly = true)
+    public PageResponseDto<CityResponseDto> searchFree(
+            String query,
+            int page,
+            int size
+    ) {
+        String q = (query != null && !query.trim().isBlank())
+                ? query.trim()
+                : null;
+
+        PageRequest pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by("name").ascending().and(Sort.by("country").ascending())
+        );
+
+        Page<CityEntity> cityPage = cityRepository.searchFree(q, pageable);
+
+        return PageResponseDto.<CityResponseDto>builder()
+                .page(cityPage.getNumber())
+                .size(cityPage.getSize())
+                .totalPages(cityPage.getTotalPages())
+                .totalElements(cityPage.getTotalElements())
+                .content(cityPage.getContent().stream()
+                        .map(cityMapper::toDto)
+                        .toList())
+                .build();
+    }
+
     @Transactional
     public CityResponseDto create(CityCreateRequest request) {
         if (cityRepository.existsByNameAndCountryIgnoreCase(request.name(), request.country())) {

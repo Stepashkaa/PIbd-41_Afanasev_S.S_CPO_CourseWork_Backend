@@ -34,6 +34,16 @@ public class CityController {
         return cityService.findByNameAndCountry(name, country);
     }
 
+    @Operation(summary = "Свободный поиск городов по одной строке (имя или страна)")
+    @GetMapping("/search-free")
+    public PageResponseDto<CityResponseDto> searchFree(
+            @RequestParam(name = "q", required = false) String q,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = Constants.DEFAULT_PAGE_SIZE) int size
+    ) {
+        return cityService.searchFree(q, page, size);
+    }
+
     @Operation(summary = "Получить список городов с фильтрацией и пагинацией")
     @GetMapping("/paged")
     public PageResponseDto<CityResponseDto> getAllPaged(
