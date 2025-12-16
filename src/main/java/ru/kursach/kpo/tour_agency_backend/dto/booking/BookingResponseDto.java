@@ -38,9 +38,15 @@ public record BookingResponseDto(
         @Schema(description = "Название тура", example = "Париж на выходные")
         String tourTitle,
 
-        @Schema(description = "ID выбранного рейса", example = "10")
-        Long selectedFlightId,
+        @Schema(description = "ID туда выбранного рейса", example = "10")
+        Long outboundFlightId,
 
-        @Schema(description = "Номер рейса", example = "SU100")
-        String selectedFlightNumber
+        @Schema(description = "Номер туда рейса", example = "SU100")
+        String outboundFlightNumber,
+
+        @Schema(description = "ID обратного выбранного рейса", example = "10")
+        Long returnFlightId,
+
+        @Schema(description = "Номер обратного рейса", example = "SU100")
+        String returnFlightNumber
 ) {}

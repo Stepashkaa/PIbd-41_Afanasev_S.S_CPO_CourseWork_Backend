@@ -44,12 +44,13 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(request -> {
                     var corsConfiguration = new CorsConfiguration();
                     corsConfiguration.setAllowedOriginPatterns(List.of("*"));
-                    corsConfiguration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+                    corsConfiguration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
                     corsConfiguration.setAllowedHeaders(List.of("*"));
                     corsConfiguration.setAllowCredentials(true);
                     return corsConfiguration;
                 }))
                 .authorizeHttpRequests(request -> request
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-resources/*", "/v3/api-docs/**").permitAll()
 
@@ -62,8 +63,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/airports/**").hasRole("ADMIN")
 
                         // flights: подбор рейсов для привязок (ADMIN + MANAGER)
-                        .requestMatchers(HttpMethod.GET, "/api/v1/flights/for-tour/**").hasAnyRole("ADMIN", "MANAGER")
-                        .requestMatchers(HttpMethod.GET, "/api/v1/flights/for-departure/**").hasAnyRole("ADMIN", "MANAGER")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/flights/for-tour/**").hasAnyRole("USER", "ADMIN", "MANAGER")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/flights/for-departure/**").hasAnyRole("USER", "ADMIN", "MANAGER")
 
                         // flights: CRUD — только ADMIN
                         //.requestMatchers("/api/v1/flights/**").hasRole("ADMIN")
@@ -78,19 +79,53 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/tours/public/**").hasAnyRole("USER", "MANAGER", "ADMIN")
                         .requestMatchers("/api/v1/tours/my/**").hasRole("MANAGER")
 
-                        // туры и вылеты туров — админ + менеджер
-                        //.requestMatchers("/api/v1/tours/**").hasAnyRole("ADMIN")
-                        .requestMatchers("/api/v1/tour-departures/**").hasAnyRole("ADMIN", "MANAGER")
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/bookings/my/*/cancel").hasAnyRole("USER","MANAGER","ADMIN")
 
-                        .requestMatchers(HttpMethod.GET, "/api/v1/tours/*").hasAnyRole("ADMIN", "MANAGER")
+
+        // туры и вылеты туров — админ + менеджер
+                        //.requestMatchers("/api/v1/tours/**").hasAnyRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/tour-departures/**").hasAnyRole("USER","MANAGER","ADMIN")
+
+                        // tour-departures: создавать/изменять/удалять могут только ADMIN/MANAGER
+                        .requestMatchers(HttpMethod.POST, "/api/v1/tour-departures/**").hasAnyRole("ADMIN","MANAGER")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/tour-departures/**").hasAnyRole("ADMIN","MANAGER")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/tour-departures/**").hasAnyRole("ADMIN","MANAGER")
+
+                        .requestMatchers(HttpMethod.GET, "/api/v1/tours/*").hasAnyRole("USER", "ADMIN", "MANAGER")
 
                         // tours: CRUD — только ADMIN
                         .requestMatchers(HttpMethod.POST, "/api/v1/tours/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/v1/tours/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/tours/**").hasRole("ADMIN")
 
+                        // bind/unbind: ADMIN + MANAGER
+                        .requestMatchers(HttpMethod.POST, "/api/v1/flights/*/departures/*").hasAnyRole("ADMIN","MANAGER")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/flights/*/departures/*").hasAnyRole("ADMIN","MANAGER")
+
+
                         // бронирования — обычные пользователи + менеджеры + админы
-                        .requestMatchers("/api/v1/bookings/**").hasAnyRole("USER", "MANAGER", "ADMIN")
+                        // USER: свои бронирования
+                        //.requestMatchers(HttpMethod.GET, "/api/v1/bookings/my/**").hasAnyRole("USER", "MANAGER", "ADMIN")
+
+                        //.requestMatchers(HttpMethod.POST, "/api/v1/bookings/**").hasRole("USER")
+                        // пример: разрешаем авторизованным пользователям создавать бронь
+                        .requestMatchers(HttpMethod.POST, "/api/v1/bookings", "/api/v1/bookings/").hasAnyRole("USER","MANAGER","ADMIN")
+
+// и разрешаем "мои брони"
+                        .requestMatchers(HttpMethod.GET, "/api/v1/bookings/my/**").hasAnyRole("USER","MANAGER","ADMIN")
+
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/bookings/*/status").hasAnyRole("ADMIN","MANAGER")
+
+                        // MANAGER / ADMIN: управление
+                        .requestMatchers(HttpMethod.GET, "/api/v1/bookings/paged").hasAnyRole("MANAGER", "ADMIN")
+
+                        .requestMatchers(HttpMethod.GET, "/api/v1/bookings/search/**").hasAnyRole("MANAGER", "ADMIN")
+
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/bookings/**").hasAnyRole("MANAGER", "ADMIN")
+
+                        .requestMatchers(HttpMethod.GET, "/api/v1/bookings/*").hasAnyRole("MANAGER","ADMIN")
+
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/bookings/**").hasAnyRole("MANAGER", "ADMIN")
                         .requestMatchers("/endpoint", "/admin/**").hasRole("ADMIN")
 
                         //.requestMatchers("/api/v1/public/**").permitAll()

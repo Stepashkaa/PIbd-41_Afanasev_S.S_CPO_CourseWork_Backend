@@ -5,14 +5,19 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 import ru.kursach.kpo.tour_agency_backend.core.configuration.Constants;
 import ru.kursach.kpo.tour_agency_backend.dto.booking.BookingCreateRequest;
 import ru.kursach.kpo.tour_agency_backend.dto.booking.BookingResponseDto;
+import ru.kursach.kpo.tour_agency_backend.dto.booking.BookingStatusUpdateRequest;
 import ru.kursach.kpo.tour_agency_backend.dto.booking.BookingUpdateRequest;
 import ru.kursach.kpo.tour_agency_backend.dto.pagination.PageResponseDto;
 import ru.kursach.kpo.tour_agency_backend.model.enums.BookingStatus;
+import ru.kursach.kpo.tour_agency_backend.repository.UserRepository;
 import ru.kursach.kpo.tour_agency_backend.service.entity.BookingService;
 
 import java.time.LocalDateTime;
@@ -26,16 +31,24 @@ import java.util.List;
 public class BookingController {
 
     private final BookingService bookingService;
+    private final UserRepository userRepository;
 
-    @Operation(summary = "Получить список бронирований с фильтрацией и пагинацией")
+    @PatchMapping("/my/{id}/cancel")
+    public BookingResponseDto cancelMy(@PathVariable Long id) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return bookingService.cancelMy(id, email);
+    }
+
+    @Operation(summary = "Получить список бронирований с фильтрацией и пагинацией (ADMIN/MANAGER)")
     @GetMapping("/paged")
     public PageResponseDto<BookingResponseDto> getAllPaged(
             @RequestParam(name = "userId", required = false) Long userId,
             @RequestParam(name = "tourDepartureId", required = false) Long tourDepartureId,
             @RequestParam(name = "status", required = false) BookingStatus status,
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
             @RequestParam(name = "createdFrom", required = false) LocalDateTime createdFrom,
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
             @RequestParam(name = "createdTo", required = false) LocalDateTime createdTo,
-            @RequestParam(name = "userEmail", required = false) String userEmail,
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = Constants.DEFAULT_PAGE_SIZE) int size
     ) {
@@ -45,7 +58,28 @@ public class BookingController {
                 status,
                 createdFrom,
                 createdTo,
-                userEmail,
+                page,
+                size
+        );
+    }
+
+    @Operation(summary = "Мои бронирования (по текущему пользователю из токена)")
+    @GetMapping("/my/paged")
+    public PageResponseDto<BookingResponseDto> getMyPaged(
+            @RequestParam(name = "tourDepartureId", required = false) Long tourDepartureId,
+            @RequestParam(name = "status", required = false) BookingStatus status,
+            @RequestParam(name = "createdFrom", required = false) LocalDateTime createdFrom,
+            @RequestParam(name = "createdTo", required = false) LocalDateTime createdTo,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = Constants.DEFAULT_PAGE_SIZE) int size
+    ) {
+        Long currentUserId = currentUserId();
+        return bookingService.getAllPaged(
+                currentUserId,
+                tourDepartureId,
+                status,
+                createdFrom,
+                createdTo,
                 page,
                 size
         );
@@ -65,7 +99,8 @@ public class BookingController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public BookingResponseDto create(@RequestBody @Valid BookingCreateRequest request) {
-        return bookingService.create(request);
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return bookingService.create(request, email);
     }
 
     @Operation(summary = "Получить бронирование по id")
@@ -92,5 +127,18 @@ public class BookingController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {
         bookingService.delete(id);
+    }
+
+    @PatchMapping("/{id}/status")
+    public BookingResponseDto updateStatus(@PathVariable Long id,
+                                           @RequestBody @Valid BookingStatusUpdateRequest request) {
+        return bookingService.updateStatus(id, request);
+    }
+
+    private Long currentUserId() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Пользователь не найден"))
+                .getId();
     }
 }

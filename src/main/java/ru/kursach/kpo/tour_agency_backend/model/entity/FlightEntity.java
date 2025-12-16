@@ -79,10 +79,15 @@ public class FlightEntity {
     @ToString.Exclude
     private List<TourDepartureEntity> tourDepartures = new ArrayList<>();
 
-    @OneToMany(mappedBy = "selectedFlight", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "outboundFlight", fetch = FetchType.LAZY)
     @Builder.Default
     @ToString.Exclude
-    private List<BookingEntity> bookings = new ArrayList<>();
+    private List<BookingEntity> outboundBookings = new ArrayList<>();
+
+    @OneToMany(mappedBy = "returnFlight", fetch = FetchType.LAZY)
+    @Builder.Default
+    @ToString.Exclude
+    private List<BookingEntity> returnBookings = new ArrayList<>();
 
     public void addTourDeparture(TourDepartureEntity tourDeparture) {
         tourDepartures.add(tourDeparture);
@@ -94,13 +99,31 @@ public class FlightEntity {
         tourDeparture.getFlights().remove(this);
     }
 
-    public void addBooking(BookingEntity booking) {
-        bookings.add(booking);
-        booking.setSelectedFlight(this);
+    public void addOutboundBooking(BookingEntity booking) {
+        if (booking == null) return;
+        if (!outboundBookings.contains(booking)) outboundBookings.add(booking);
+        booking.setOutboundFlight(this);
     }
 
-    public void removeBooking(BookingEntity booking) {
-        bookings.remove(booking);
-        booking.setSelectedFlight(null);
+    public void removeOutboundBooking(BookingEntity booking) {
+        if (booking == null) return;
+        outboundBookings.remove(booking);
+        if (booking.getOutboundFlight() != null && booking.getOutboundFlight().getId().equals(this.id)) {
+            booking.setOutboundFlight(null); // если хочешь строгость: лучше не null, а запрещать удаление outbound вообще
+        }
+    }
+
+    public void addReturnBooking(BookingEntity booking) {
+        if (booking == null) return;
+        if (!returnBookings.contains(booking)) returnBookings.add(booking);
+        booking.setReturnFlight(this);
+    }
+
+    public void removeReturnBooking(BookingEntity booking) {
+        if (booking == null) return;
+        returnBookings.remove(booking);
+        if (booking.getReturnFlight() != null && booking.getReturnFlight().getId().equals(this.id)) {
+            booking.setReturnFlight(null);
+        }
     }
 }

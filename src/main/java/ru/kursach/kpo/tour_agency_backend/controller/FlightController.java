@@ -6,12 +6,15 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 import ru.kursach.kpo.tour_agency_backend.core.configuration.Constants;
 import ru.kursach.kpo.tour_agency_backend.dto.flight.FlightCreateRequest;
 import ru.kursach.kpo.tour_agency_backend.dto.flight.FlightResponseDto;
 import ru.kursach.kpo.tour_agency_backend.dto.flight.FlightUpdateRequest;
 import ru.kursach.kpo.tour_agency_backend.dto.pagination.PageResponseDto;
+import ru.kursach.kpo.tour_agency_backend.repository.UserRepository;
 import ru.kursach.kpo.tour_agency_backend.service.entity.FlightService;
 
 import java.util.List;
@@ -24,6 +27,21 @@ import java.util.List;
 public class FlightController {
 
     private final FlightService flightService;
+    private final UserRepository userRepository;
+
+
+    @Operation(summary = "Получить список рейсов, подходящих для тура и диапазона дат вылета")
+    @GetMapping("/for-tour-departure/{tourId}")
+    public PageResponseDto<FlightResponseDto> getFlightsForTourDeparture(
+            @PathVariable Long tourId,
+            @RequestParam(name = "startDate") java.time.LocalDate startDate,
+            @RequestParam(name = "endDate") java.time.LocalDate endDate,
+            @RequestParam(name = "flightNumber", required = false) String flightNumber,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = Constants.DEFAULT_PAGE_SIZE) int size
+    ) {
+        return flightService.getFlightsForTourDeparture(tourId, startDate, endDate, flightNumber, page, size);
+    }
 
     @GetMapping("/for-departure/{departureId}")
     public PageResponseDto<FlightResponseDto> getFlightsForDeparture(
@@ -102,21 +120,22 @@ public class FlightController {
         flightService.delete(id);
     }
 
-    @Operation(summary = "Привязать вылет тура к рейсу")
-    @PostMapping("/{flightId}/departures/{departureId}")
-    public FlightResponseDto addDeparture(
-            @PathVariable Long flightId,
-            @PathVariable Long departureId
-    ) {
-        return flightService.addDepartureToFlight(flightId, departureId);
+    private Long currentUserId() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Пользователь не найден"))
+                .getId();
     }
 
-    @Operation(summary = "Отвязать вылет тура от рейса")
+    @PostMapping("/{flightId}/departures/{departureId}")
+    public FlightResponseDto addDeparture(@PathVariable Long flightId,
+                                          @PathVariable Long departureId) {
+        return flightService.addDepartureToFlight(currentUserId(), flightId, departureId);
+    }
+
     @DeleteMapping("/{flightId}/departures/{departureId}")
-    public FlightResponseDto removeDeparture(
-            @PathVariable Long flightId,
-            @PathVariable Long departureId
-    ) {
-        return flightService.removeDepartureFromFlight(flightId, departureId);
+    public FlightResponseDto removeDeparture(@PathVariable Long flightId,
+                                             @PathVariable Long departureId) {
+        return flightService.removeDepartureFromFlight(currentUserId(), flightId, departureId);
     }
 }

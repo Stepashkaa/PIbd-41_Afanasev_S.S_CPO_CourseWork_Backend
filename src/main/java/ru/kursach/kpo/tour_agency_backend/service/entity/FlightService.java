@@ -14,14 +14,9 @@ import ru.kursach.kpo.tour_agency_backend.dto.flight.FlightResponseDto;
 import ru.kursach.kpo.tour_agency_backend.dto.flight.FlightUpdateRequest;
 import ru.kursach.kpo.tour_agency_backend.dto.pagination.PageResponseDto;
 import ru.kursach.kpo.tour_agency_backend.mapper.FlightMapper;
-import ru.kursach.kpo.tour_agency_backend.model.entity.AirportEntity;
-import ru.kursach.kpo.tour_agency_backend.model.entity.FlightEntity;
-import ru.kursach.kpo.tour_agency_backend.model.entity.TourDepartureEntity;
-import ru.kursach.kpo.tour_agency_backend.model.entity.TourEntity;
-import ru.kursach.kpo.tour_agency_backend.repository.AirportRepository;
-import ru.kursach.kpo.tour_agency_backend.repository.FlightRepository;
-import ru.kursach.kpo.tour_agency_backend.repository.TourDepartureRepository;
-import ru.kursach.kpo.tour_agency_backend.repository.TourRepository;
+import ru.kursach.kpo.tour_agency_backend.model.entity.*;
+import ru.kursach.kpo.tour_agency_backend.model.enums.UserRole;
+import ru.kursach.kpo.tour_agency_backend.repository.*;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -35,6 +30,56 @@ public class FlightService {
     private final TourDepartureRepository tourDepartureRepository;
     private final TourRepository tourRepository;
     private final FlightMapper flightMapper;
+    private final UserRepository userRepository;
+
+    @Transactional(readOnly = true)
+    public PageResponseDto<FlightResponseDto> getFlightsForTourDeparture(
+            Long tourId,
+            LocalDate startDate,
+            LocalDate endDate,
+            String flightNumberFilter,
+            int page,
+            int size
+    ) {
+        if (startDate == null || endDate == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "startDate и endDate обязательны");
+        }
+        if (endDate.isBefore(startDate)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "endDate не может быть раньше startDate");
+        }
+
+        TourEntity tour = tourRepository.findById(tourId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Тур с id=" + tourId + " не найден"
+                ));
+
+        Long cityId = tour.getBaseCity().getId();
+
+        String flightNumber = (flightNumberFilter != null) ? flightNumberFilter.trim().toLowerCase() : "";
+
+        var pageable = PageRequest.of(page, size, Sort.by("flightNumber").ascending());
+
+        // границы по времени, чтобы корректно сравнивать с LocalDateTime в рейсе
+        var from = startDate.atStartOfDay();
+        var toExclusive = endDate.plusDays(1).atStartOfDay(); // конец дня (exclusive)
+
+        Page<FlightEntity> flights = flightRepository.searchForTourDeparture(
+                cityId,
+                flightNumber,
+                from,
+                toExclusive,
+                pageable
+        );
+
+        return PageResponseDto.<FlightResponseDto>builder()
+                .page(flights.getNumber())
+                .size(flights.getSize())
+                .totalPages(flights.getTotalPages())
+                .totalElements(flights.getTotalElements())
+                .content(flights.getContent().stream().map(flightMapper::toDto).toList())
+                .build();
+    }
 
     @Transactional(readOnly = true)
     public PageResponseDto<FlightResponseDto> getFlightsForDeparture(
@@ -52,9 +97,9 @@ public class FlightService {
         TourEntity tour = departure.getTour();
         Long cityId = tour.getBaseCity().getId();
 
-        String flightNumber = (flightNumberFilter != null && !flightNumberFilter.isBlank())
-                ? flightNumberFilter.trim()
-                : null;
+        String flightNumber = (flightNumberFilter != null)
+                ? flightNumberFilter.trim().toLowerCase()
+                : "";
 
         PageRequest pageable = PageRequest.of(page, size, Sort.by("flightNumber").ascending());
 
@@ -101,9 +146,9 @@ public class FlightService {
 
         Long cityId = tour.getBaseCity().getId();
 
-        String flightNumber = (flightNumberFilter != null && !flightNumberFilter.isBlank())
-                ? flightNumberFilter.trim()
-                : null;
+        String flightNumber = (flightNumberFilter != null)
+                ? flightNumberFilter.trim().toLowerCase()
+                : "";
 
         PageRequest pageable = PageRequest.of(
                 page,
@@ -331,7 +376,9 @@ public class FlightService {
         }
     }
 
-    public FlightResponseDto addDepartureToFlight(Long flightId, Long departureId) {
+    public FlightResponseDto addDepartureToFlight(Long userId, Long flightId, Long departureId) {
+
+        UserEntity user = resolveUser(userId);
 
         FlightEntity flight = flightRepository.findById(flightId)
                 .orElseThrow(() -> new ResponseStatusException(
@@ -344,6 +391,10 @@ public class FlightService {
                         HttpStatus.NOT_FOUND,
                         "Вылет тура с id=" + departureId + " не найден"
                 ));
+
+        if (user.getUserRole() == UserRole.MANAGER) {
+            assertManagerOwnsDeparture(user, departure);
+        }
 
         if (flight.getTourDepartures().contains(departure)) {
             throw new ResponseStatusException(
@@ -360,7 +411,9 @@ public class FlightService {
         return flightMapper.toDto(flight);
     }
 
-    public FlightResponseDto removeDepartureFromFlight(Long flightId, Long departureId) {
+    public FlightResponseDto removeDepartureFromFlight(Long userId, Long flightId, Long departureId) {
+
+        UserEntity user = resolveUser(userId);
 
         FlightEntity flight = flightRepository.findById(flightId)
                 .orElseThrow(() -> new ResponseStatusException(
@@ -373,6 +426,10 @@ public class FlightService {
                         HttpStatus.NOT_FOUND,
                         "Вылет тура с id=" + departureId + " не найден"
                 ));
+
+        if (user.getUserRole() == UserRole.MANAGER) {
+            assertManagerOwnsDeparture(user, departure);
+        }
 
         if (!flight.getTourDepartures().contains(departure)) {
             throw new ResponseStatusException(
@@ -441,4 +498,25 @@ public class FlightService {
         }
     }
 
+    private UserEntity resolveUser(Long userId) {
+        if (userId == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Не передан идентификатор пользователя"
+            );
+        }
+
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED,
+                        "Пользователь с id=" + userId + " не найден"
+                ));
+    }
+
+    private void assertManagerOwnsDeparture(UserEntity manager, TourDepartureEntity departure) {
+        TourEntity tour = departure.getTour();
+        if (tour.getManagerUser() == null || !tour.getManagerUser().getId().equals(manager.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Нет доступа к вылету другого менеджера");
+        }
+    }
 }

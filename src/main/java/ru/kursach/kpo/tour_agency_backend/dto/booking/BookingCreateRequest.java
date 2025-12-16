@@ -24,11 +24,11 @@ public record BookingCreateRequest(
         @NotNull(message = "Вылет тура обязателен")
         Long tourDepartureId,
 
-        @Schema(description = "ID выбранного рейса (может быть null)", example = "10")
-        Long selectedFlightId,
+        @Schema(description = "ID туда выбранного рейса (может быть null)", example = "10")
+        @NotNull(message = "Рейс туда обязателен")
+        Long outboundFlightId,
 
-        @Schema(description = "ID пользователя", example = "5")
-        @NotNull(message = "Пользователь обязателен")
-        Long userId
+        @Schema(description = "ID обратно выбранного рейса (может быть null)", example = "10")
+        Long returnFlightId
 ) {}
 

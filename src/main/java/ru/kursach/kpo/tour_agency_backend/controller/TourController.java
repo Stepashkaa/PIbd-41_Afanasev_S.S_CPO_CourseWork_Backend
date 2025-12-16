@@ -29,6 +29,12 @@ public class TourController {
 
     private final TourService tourService;
 
+    @Operation(summary = "Получить публичный тур по id")
+    @GetMapping("/public/{id}")
+    public TourResponseDto getPublicById(@PathVariable Long id) {
+        return tourService.getById(id); // или отдельный метод, если нужно скрыть неактивные/неопубликованные
+    }
+
     @GetMapping("/public/paged")
     public PageResponseDto<TourResponseDto> getPublicPaged(
             @RequestParam(name = "title", required = false) String title,

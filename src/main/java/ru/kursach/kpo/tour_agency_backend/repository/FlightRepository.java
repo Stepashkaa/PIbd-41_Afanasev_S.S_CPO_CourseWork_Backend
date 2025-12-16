@@ -32,17 +32,36 @@ public interface FlightRepository extends JpaRepository<FlightEntity, Long> {
     Optional<FlightEntity> findByFlightNumberIgnoreCase(String flightNumber);
 
     @Query("""
-        SELECT f
-        FROM FlightEntity f
-        WHERE (:cityId IS NULL OR 
-               f.departureAirport.city.id = :cityId 
-               OR f.arrivalAirport.city.id = :cityId)
-          AND (:flightNumber IS NULL OR 
-               LOWER(f.flightNumber) LIKE CONCAT('%', LOWER(:flightNumber), '%'))
-        """)
+    SELECT f
+    FROM FlightEntity f
+    WHERE (:cityId IS NULL
+           OR f.departureAirport.city.id = :cityId
+           OR f.arrivalAirport.city.id = :cityId)
+      AND (:flightNumber = '' 
+           OR LOWER(f.flightNumber) LIKE CONCAT('%', :flightNumber, '%'))
+    """)
     Page<FlightEntity> searchByCityAndNumber(
             @Param("cityId") Long cityId,
             @Param("flightNumber") String flightNumber,
-            org.springframework.data.domain.Pageable pageable
+            Pageable pageable
+    );
+
+    @Query("""
+    SELECT f
+    FROM FlightEntity f
+    WHERE (:cityId IS NULL
+           OR f.departureAirport.city.id = :cityId
+           OR f.arrivalAirport.city.id = :cityId)
+      AND (:flightNumber = ''
+           OR LOWER(f.flightNumber) LIKE CONCAT('%', :flightNumber, '%'))
+      AND (f.arriveAt >= :from)
+      AND (f.departAt < :toExclusive)
+    """)
+    Page<FlightEntity> searchForTourDeparture(
+            @Param("cityId") Long cityId,
+            @Param("flightNumber") String flightNumber,
+            @Param("from") java.time.LocalDateTime from,
+            @Param("toExclusive") java.time.LocalDateTime toExclusive,
+            Pageable pageable
     );
 }

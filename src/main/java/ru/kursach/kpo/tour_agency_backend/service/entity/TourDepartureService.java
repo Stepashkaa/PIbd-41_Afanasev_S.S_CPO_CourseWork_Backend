@@ -17,13 +17,17 @@ import ru.kursach.kpo.tour_agency_backend.mapper.TourDepartureMapper;
 import ru.kursach.kpo.tour_agency_backend.model.entity.FlightEntity;
 import ru.kursach.kpo.tour_agency_backend.model.entity.TourDepartureEntity;
 import ru.kursach.kpo.tour_agency_backend.model.entity.TourEntity;
+import ru.kursach.kpo.tour_agency_backend.model.entity.UserEntity;
 import ru.kursach.kpo.tour_agency_backend.model.enums.TourDepartureStatus;
+import ru.kursach.kpo.tour_agency_backend.model.enums.UserRole;
 import ru.kursach.kpo.tour_agency_backend.repository.FlightRepository;
 import ru.kursach.kpo.tour_agency_backend.repository.TourDepartureRepository;
 import ru.kursach.kpo.tour_agency_backend.repository.TourRepository;
+import ru.kursach.kpo.tour_agency_backend.repository.UserRepository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.sql.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -36,6 +40,44 @@ public class TourDepartureService {
     private final TourRepository tourRepository;
     private final FlightRepository flightRepository;
     private final TourDepartureMapper tourDepartureMapper;
+    private final UserRepository userRepository;
+
+    @Transactional(readOnly = true)
+    public PageResponseDto<TourDepartureResponseDto> getMyPaged(
+            Long userId,
+            Long tourId,
+            TourDepartureStatus status,
+            LocalDate startFrom,
+            LocalDate startTo,
+            int page,
+            int size
+    ) {
+        UserEntity manager = resolveUser(userId);
+
+        if (manager.getUserRole() != UserRole.MANAGER) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Доступ только для менеджеров");
+        }
+
+        Page<TourDepartureEntity> pageData =
+                tourDepartureRepository.searchMyPaged(
+                        manager.getId(),
+                        tourId,
+                        status,
+                        startFrom,
+                        startTo,
+                        PageRequest.of(page, size, Sort.by("startDate").ascending())
+                );
+
+        return PageResponseDto.<TourDepartureResponseDto>builder()
+                .page(pageData.getNumber())
+                .size(pageData.getSize())
+                .totalPages(pageData.getTotalPages())
+                .totalElements(pageData.getTotalElements())
+                .content(pageData.getContent().stream()
+                        .map(tourDepartureMapper::toDto)
+                        .toList())
+                .build();
+    }
 
     @Transactional(readOnly = true)
     public PageResponseDto<TourDepartureResponseDto> getAllPaged(
@@ -51,6 +93,13 @@ public class TourDepartureService {
                 size,
                 Sort.by("startDate").ascending().and(Sort.by("id").ascending())
         );
+
+        if (startFrom != null && startTo != null && startFrom.isAfter(startTo)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "startFrom не может быть позже startTo"
+            );
+        }
 
         Page<TourDepartureEntity> departuresPage = tourDepartureRepository.searchPaged(
                 tourId,
@@ -116,6 +165,10 @@ public class TourDepartureService {
         LocalDate effectiveFrom = (startFrom != null) ? startFrom : flightFrom;
         LocalDate effectiveTo   = (startTo   != null) ? startTo   : flightTo;
 
+        if (effectiveFrom != null && effectiveTo != null && effectiveFrom.isAfter(effectiveTo)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "startFrom не может быть позже startTo");
+        }
+
         var pageable = PageRequest.of(
                 page,
                 size,
@@ -143,8 +196,9 @@ public class TourDepartureService {
 
 
     @Transactional
-    public TourDepartureResponseDto create(TourDepartureCreateRequest request) {
+    public TourDepartureResponseDto create(Long userId, TourDepartureCreateRequest request) {
 
+        // ✅ твои проверки (оставляем)
         if (request.endDate().isBefore(request.startDate())) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -162,10 +216,17 @@ public class TourDepartureService {
 
         validatePriceOverride(request.priceOverride(), tour);
 
+        // ✅ ДОБАВЛЯЕМ: менеджер может создавать вылет только для своего тура
+        UserEntity user = resolveUser(userId);
+        if (user.getUserRole() == UserRole.MANAGER) {
+            assertManagerOwnsTour(user, tour);
+        }
+
         TourDepartureEntity departure = tourDepartureMapper.toEntity(request, tour);
 
         tour.addDeparture(departure);
 
+        // ✅ твоя логика привязки flightIds (оставляем)
         if (request.flightIds() != null && !request.flightIds().isEmpty()) {
             List<FlightEntity> flights = flightRepository.findAllById(request.flightIds());
 
@@ -202,7 +263,7 @@ public class TourDepartureService {
     }
 
     @Transactional
-    public TourDepartureResponseDto update(Long id, TourDepartureUpdateRequest request) {
+    public TourDepartureResponseDto update(Long userId, Long id, TourDepartureUpdateRequest request) {
 
         TourDepartureEntity departure = tourDepartureRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(
@@ -210,6 +271,13 @@ public class TourDepartureService {
                         "Вылет тура с id=" + id + " не найден"
                 ));
 
+        // ✅ ДОБАВЛЯЕМ: менеджер может редактировать только свой вылет
+        UserEntity user = resolveUser(userId);
+        if (user.getUserRole() == UserRole.MANAGER) {
+            assertManagerOwnsDeparture(user, departure);
+        }
+
+        // ✅ твои проверки (оставляем)
         validateCapacity(request.capacityTotal(), request.capacityReserved());
 
         if (request.endDate().isBefore(request.startDate())) {
@@ -223,16 +291,21 @@ public class TourDepartureService {
                         "Тур с id=" + request.tourId() + " не найден"
                 ));
 
-
         validatePriceOverride(request.priceOverride(), newTour);
 
-        TourEntity oldTour = departure.getTour();
+        // ✅ ДОБАВЛЯЕМ: если менеджер меняет tourId — новый тур тоже должен быть его
+        if (user.getUserRole() == UserRole.MANAGER) {
+            assertManagerOwnsTour(user, newTour);
+        }
 
+        // ✅ твоя логика переноса между турами (оставляем)
+        TourEntity oldTour = departure.getTour();
         if (!oldTour.getId().equals(newTour.getId())) {
             oldTour.removeDeparture(departure);
             newTour.addDeparture(departure);
         }
 
+        // ✅ твоя логика обновления flights (оставляем)
         if (request.flightIds() != null) {
 
             Set<Long> newIds = new HashSet<>(request.flightIds());
@@ -266,13 +339,21 @@ public class TourDepartureService {
     }
 
     @Transactional
-    public void delete(Long id) {
+    public void delete(Long userId, Long id) {
+
         TourDepartureEntity departure = tourDepartureRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "Вылет тура с id=" + id + " не найден"
                 ));
 
+        // ✅ ДОБАВЛЯЕМ: менеджер может удалить только свой вылет
+        UserEntity user = resolveUser(userId);
+        if (user.getUserRole() == UserRole.MANAGER) {
+            assertManagerOwnsDeparture(user, departure);
+        }
+
+        // ✅ твоя логика отвязки (оставляем)
         if (departure.getTour() != null) {
             departure.getTour().removeDeparture(departure);
         }
@@ -361,5 +442,27 @@ public class TourDepartureService {
         for (FlightEntity flight : departure.getFlights()) {
             validateFlightForDeparture(flight, departure);
         }
+    }
+
+    private UserEntity resolveUser(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED,
+                        "Пользователь с id=" + userId + " не найден"
+                ));
+    }
+
+    private void assertManagerOwnsTour(UserEntity manager, TourEntity tour) {
+        if (tour.getManagerUser() == null ||
+                !tour.getManagerUser().getId().equals(manager.getId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Нет доступа к туру другого менеджера"
+            );
+        }
+    }
+
+    private void assertManagerOwnsDeparture(UserEntity manager, TourDepartureEntity departure) {
+        assertManagerOwnsTour(manager, departure.getTour());
     }
 }

@@ -6,13 +6,16 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 import ru.kursach.kpo.tour_agency_backend.core.configuration.Constants;
 import ru.kursach.kpo.tour_agency_backend.dto.pagination.PageResponseDto;
 import ru.kursach.kpo.tour_agency_backend.dto.tourdeparture.TourDepartureCreateRequest;
 import ru.kursach.kpo.tour_agency_backend.dto.tourdeparture.TourDepartureResponseDto;
 import ru.kursach.kpo.tour_agency_backend.dto.tourdeparture.TourDepartureUpdateRequest;
 import ru.kursach.kpo.tour_agency_backend.model.enums.TourDepartureStatus;
+import ru.kursach.kpo.tour_agency_backend.repository.UserRepository;
 import ru.kursach.kpo.tour_agency_backend.service.entity.TourDepartureService;
 
 import java.time.LocalDate;
@@ -26,6 +29,21 @@ import java.util.List;
 public class TourDepartureController {
 
     private final TourDepartureService tourDepartureService;
+    private final UserRepository userRepository;
+
+    @GetMapping("/my/paged")
+    public PageResponseDto<TourDepartureResponseDto> getMyPaged(
+            @RequestParam(required = false) Long tourId,
+            @RequestParam(required = false) TourDepartureStatus status,
+            @RequestParam(required = false) LocalDate startFrom,
+            @RequestParam(required = false) LocalDate startTo,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = Constants.DEFAULT_PAGE_SIZE) int size
+    ) {
+        return tourDepartureService.getMyPaged(
+                currentUserId(), tourId, status, startFrom, startTo, page, size
+        );
+    }
 
     @Operation(summary = "Получить вылеты туров, подходящие для рейса (по городам рейса)")
     @GetMapping("/for-flight/{flightId}")
@@ -67,7 +85,7 @@ public class TourDepartureController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public TourDepartureResponseDto create(@RequestBody @Valid TourDepartureCreateRequest request) {
-        return tourDepartureService.create(request);
+        return tourDepartureService.create(currentUserId(), request);
     }
 
     @Operation(summary = "Получить вылет тура по id")
@@ -86,13 +104,20 @@ public class TourDepartureController {
     @PutMapping("/{id}")
     public TourDepartureResponseDto update(@PathVariable Long id,
                                            @RequestBody @Valid TourDepartureUpdateRequest request) {
-        return tourDepartureService.update(id, request);
+        return tourDepartureService.update(currentUserId(), id, request);
     }
 
     @Operation(summary = "Удалить вылет тура")
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {
-        tourDepartureService.delete(id);
+        tourDepartureService.delete(currentUserId(), id);
+    }
+
+    private Long currentUserId() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Пользователь не найден"))
+                .getId();
     }
 }

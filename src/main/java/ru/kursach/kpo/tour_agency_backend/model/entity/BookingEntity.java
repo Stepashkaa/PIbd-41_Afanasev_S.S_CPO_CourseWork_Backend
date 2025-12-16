@@ -52,10 +52,15 @@ public class BookingEntity {
     @ToString.Exclude
     private TourDepartureEntity tourDeparture;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "selected_flight_id")
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "outbound_flight_id", nullable = false)
     @ToString.Exclude
-    private FlightEntity selectedFlight;
+    private FlightEntity outboundFlight;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "return_flight_id") // nullable
+    @ToString.Exclude
+    private FlightEntity returnFlight;
 
     @PrePersist
     protected void onCreate() {

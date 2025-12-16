@@ -1,6 +1,7 @@
 package ru.kursach.kpo.tour_agency_backend.repository;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,22 +14,21 @@ import java.time.LocalDateTime;
 @Repository
 public interface BookingRepository extends JpaRepository<BookingEntity, Long> {
     @Query("""
-           SELECT b
-           FROM BookingEntity b
-           WHERE (:userId IS NULL OR b.user.id = :userId)
-             AND (:tourDepartureId IS NULL OR b.tourDeparture.id = :tourDepartureId)
-             AND (:status IS NULL OR b.status = :status)
-             AND (:createdFrom IS NULL OR b.createdAt >= :createdFrom)
-             AND (:createdTo IS NULL OR b.createdAt <= :createdTo)
-             AND (:userEmail IS NULL OR LOWER(b.user.email) LIKE LOWER(CONCAT('%', :userEmail, '%')))
-           """)
+        select b
+        from BookingEntity b
+        join b.user u
+        where (:userId is null or u.id = :userId)
+          and (:tourDepartureId is null or b.tourDeparture.id = :tourDepartureId)
+          and (:status is null or b.status = :status)
+          and b.createdAt >= coalesce(:createdFrom, b.createdAt)
+          and b.createdAt <= coalesce(:createdTo, b.createdAt)
+    """)
     Page<BookingEntity> searchPaged(
             @Param("userId") Long userId,
             @Param("tourDepartureId") Long tourDepartureId,
             @Param("status") BookingStatus status,
             @Param("createdFrom") LocalDateTime createdFrom,
             @Param("createdTo") LocalDateTime createdTo,
-            @Param("userEmail") String userEmail,
-            org.springframework.data.domain.Pageable pageable
+            Pageable pageable
     );
 }

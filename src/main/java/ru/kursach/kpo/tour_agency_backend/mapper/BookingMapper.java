@@ -49,11 +49,17 @@ public class BookingMapper {
                         entity.getTourDeparture().getTour() != null
                         ? entity.getTourDeparture().getTour().getTitle()
                         : null)
-                .selectedFlightId(entity.getSelectedFlight() != null
-                        ? entity.getSelectedFlight().getId()
+                .outboundFlightId(entity.getOutboundFlight() != null
+                        ? entity.getOutboundFlight().getId()
                         : null)
-                .selectedFlightNumber(entity.getSelectedFlight() != null
-                        ? entity.getSelectedFlight().getFlightNumber()
+                .outboundFlightNumber(entity.getOutboundFlight() != null
+                        ? entity.getOutboundFlight().getFlightNumber()
+                        : null)
+                .returnFlightId(entity.getReturnFlight() != null
+                        ? entity.getReturnFlight().getId()
+                        : null)
+                .returnFlightNumber(entity.getReturnFlight() != null
+                        ? entity.getReturnFlight().getFlightNumber()
                         : null)
                 .build();
     }
