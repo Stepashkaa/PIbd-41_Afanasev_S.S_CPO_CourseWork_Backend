@@ -33,7 +33,7 @@ public class AirportService {
     public PageResponseDto<AirportResponseDto> getAllPaged(
             String iataFilter,
             String nameFilter,
-            String cityNameFilter,
+            Long cityId,
             int page,
             int size
     ) {
@@ -45,10 +45,6 @@ public class AirportService {
                 ? nameFilter.trim().toLowerCase()
                 : "";
 
-        String cityName = (cityNameFilter != null && !cityNameFilter.isBlank())
-                ? cityNameFilter.trim().toLowerCase()
-                : "";
-
         PageRequest pageable = PageRequest.of(
                 page,
                 size,
@@ -58,7 +54,7 @@ public class AirportService {
         Page<AirportEntity> airportPage = airportRepository.search(
                 iata,
                 name,
-                cityName,
+                cityId,
                 pageable
         );
 

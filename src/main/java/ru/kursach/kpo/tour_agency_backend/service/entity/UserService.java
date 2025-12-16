@@ -34,19 +34,13 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public PageResponseDto<UserResponseDto> getAllPaged(
-            String username,
-            String email,
+            String q,
             UserRole role,
             Boolean active,
             int page,
             int size
     ) {
-        String usernameFilter = username != null && !username.isBlank()
-                ? username.trim()
-                : null;
-        String emailFilter = email != null && !email.isBlank()
-                ? email.trim()
-                : null;
+        String query = (q != null && !q.isBlank()) ? q.trim().toLowerCase() : "";
 
         var pageable = PageRequest.of(
                 page,
@@ -54,22 +48,14 @@ public class UserService {
                 Sort.by("username").ascending().and(Sort.by("id").ascending())
         );
 
-        Page<UserEntity> userPage = userRepository.searchPaged(
-                usernameFilter,
-                emailFilter,
-                role,
-                active,
-                pageable
-        );
+        Page<UserEntity> userPage = userRepository.searchPaged(query, role, active, pageable);
 
         return PageResponseDto.<UserResponseDto>builder()
                 .page(userPage.getNumber())
                 .size(userPage.getSize())
                 .totalPages(userPage.getTotalPages())
                 .totalElements(userPage.getTotalElements())
-                .content(userPage.getContent().stream()
-                        .map(userMapper::toDto)
-                        .toList())
+                .content(userPage.getContent().stream().map(userMapper::toDto).toList())
                 .build();
     }
 
@@ -86,7 +72,7 @@ public class UserService {
             );
         }
 
-        return getAllPaged(username, null, null, null, page, size);
+        return getAllPaged(username, null, null, page, size);
     }
 
     @Transactional

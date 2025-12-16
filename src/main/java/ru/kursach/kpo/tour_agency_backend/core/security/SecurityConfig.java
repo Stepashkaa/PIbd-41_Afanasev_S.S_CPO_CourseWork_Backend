@@ -3,6 +3,7 @@ package ru.kursach.kpo.tour_agency_backend.core.security;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -51,18 +52,49 @@ public class SecurityConfig {
                 .authorizeHttpRequests(request -> request
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-resources/*", "/v3/api-docs/**").permitAll()
-                        .requestMatchers("/api/v1/cities/**").hasRole("ADMIN")
+
+                        // Cities: читать могут все роли, CRUD — только ADMIN
+                        .requestMatchers(HttpMethod.GET, "/api/v1/cities/**").hasAnyRole("USER", "MANAGER", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/cities/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/cities/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/cities/**").hasRole("ADMIN")
+
                         .requestMatchers("/api/v1/airports/**").hasRole("ADMIN")
-                        .requestMatchers("/api/v1/flights/**").hasRole("ADMIN")
+
+                        // flights: подбор рейсов для привязок (ADMIN + MANAGER)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/flights/for-tour/**").hasAnyRole("ADMIN", "MANAGER")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/flights/for-departure/**").hasAnyRole("ADMIN", "MANAGER")
+
+                        // flights: CRUD — только ADMIN
+                        //.requestMatchers("/api/v1/flights/**").hasRole("ADMIN")
+
+                        .requestMatchers(HttpMethod.GET, "/api/v1/flights/**").hasAnyRole("ADMIN", "MANAGER")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/flights/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/flights/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/flights/**").hasRole("ADMIN")
+                        //.requestMatchers("/api/v1/flights/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/users/**").hasRole("ADMIN")
 
+                        .requestMatchers("/api/v1/tours/public/**").hasAnyRole("USER", "MANAGER", "ADMIN")
+                        .requestMatchers("/api/v1/tours/my/**").hasRole("MANAGER")
+
                         // туры и вылеты туров — админ + менеджер
-                        .requestMatchers("/api/v1/tours/**").hasAnyRole("ADMIN", "MANAGER")
+                        //.requestMatchers("/api/v1/tours/**").hasAnyRole("ADMIN")
                         .requestMatchers("/api/v1/tour-departures/**").hasAnyRole("ADMIN", "MANAGER")
+
+                        .requestMatchers(HttpMethod.GET, "/api/v1/tours/*").hasAnyRole("ADMIN", "MANAGER")
+
+                        // tours: CRUD — только ADMIN
+                        .requestMatchers(HttpMethod.POST, "/api/v1/tours/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/tours/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/tours/**").hasRole("ADMIN")
 
                         // бронирования — обычные пользователи + менеджеры + админы
                         .requestMatchers("/api/v1/bookings/**").hasAnyRole("USER", "MANAGER", "ADMIN")
                         .requestMatchers("/endpoint", "/admin/**").hasRole("ADMIN")
+
+                        //.requestMatchers("/api/v1/public/**").permitAll()
+                        //.requestMatchers("/api/v1/manager/**").hasRole("MANAGER")
 
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

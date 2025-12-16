@@ -27,18 +27,16 @@ public class UserController {
 
     private final UserService userService;
 
-    @Operation(summary = "Получить список пользователей с фильтрацией и пагинацией")
     @GetMapping("/paged")
     @PreAuthorize("hasRole('ADMIN')")
     public PageResponseDto<UserResponseDto> getAllPaged(
-            @RequestParam(name = "username", required = false) String username,
-            @RequestParam(name = "email", required = false) String email,
+            @RequestParam(name = "q", required = false) String q,
             @RequestParam(name = "role", required = false) UserRole role,
             @RequestParam(name = "active", required = false) Boolean active,
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = Constants.DEFAULT_PAGE_SIZE) int size
     ) {
-        return userService.getAllPaged(username, email, role, active, page, size);
+        return userService.getAllPaged(q, role, active, page, size);
     }
 
     @Operation(summary = "Поиск пользователей по имени (с пагинацией)")

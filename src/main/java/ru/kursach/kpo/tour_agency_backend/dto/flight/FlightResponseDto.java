@@ -6,6 +6,7 @@ import ru.kursach.kpo.tour_agency_backend.model.enums.FlightStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Builder
 @Schema(description = "Рейс (ответ)")
@@ -42,5 +43,8 @@ public record FlightResponseDto(
         Long arrivalAirportId,
 
         @Schema(description = "Название аэропорта прилёта", example = "Пулково")
-        String arrivalAirportName
+        String arrivalAirportName,
+
+        @Schema(description = "Список ID привязанных вылетов туров", example = "[1,2]")
+        List<Long> tourDepartureIds
 ) {}

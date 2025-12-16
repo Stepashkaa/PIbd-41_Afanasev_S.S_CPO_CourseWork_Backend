@@ -22,12 +22,12 @@ public interface AirportRepository extends JpaRepository<AirportEntity, Long> {
        FROM AirportEntity a
        WHERE LOWER(a.iataCode) LIKE CONCAT('%', :iata, '%')
          AND LOWER(a.name) LIKE CONCAT('%', :name, '%')
-         AND LOWER(a.city.name) LIKE CONCAT('%', :cityName, '%')
-       """)
+         AND (:cityId IS NULL OR a.city.id = :cityId)
+   """)
     Page<AirportEntity> search(
             @Param("iata") String iata,
             @Param("name") String name,
-            @Param("cityName") String cityName,
+            @Param("cityId") Long cityId,
             Pageable pageable
     );
 }

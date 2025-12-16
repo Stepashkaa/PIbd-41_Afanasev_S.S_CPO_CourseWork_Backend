@@ -7,6 +7,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import ru.kursach.kpo.tour_agency_backend.core.configuration.Constants;
 import ru.kursach.kpo.tour_agency_backend.dto.pagination.PageResponseDto;
@@ -26,6 +28,30 @@ import java.util.List;
 public class TourController {
 
     private final TourService tourService;
+
+    @GetMapping("/public/paged")
+    public PageResponseDto<TourResponseDto> getPublicPaged(
+            @RequestParam(name = "title", required = false) String title,
+            @RequestParam(name = "baseCityId", required = false) Long baseCityId,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = Constants.DEFAULT_PAGE_SIZE) int size
+    ) {
+        return tourService.getPublicPaged(title, baseCityId, page, size);
+    }
+
+    @GetMapping("/my/paged")
+    public PageResponseDto<TourResponseDto> getMyPaged(
+            @RequestParam(name = "title", required = false) String title,
+            @RequestParam(name = "baseCityId", required = false) Long baseCityId,
+            @RequestParam(name = "status", required = false) TourStatus status,
+            @RequestParam(name = "active", required = false) Boolean active,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = Constants.DEFAULT_PAGE_SIZE) int size
+    ) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String email = auth.getName(); // у тебя subject = email
+        return tourService.getMyPaged(email, title, baseCityId, status, active, page, size);
+    }
 
     @Operation(summary = "Получить список туров с пагинацией и фильтрацией")
     @GetMapping("/paged")

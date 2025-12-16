@@ -35,6 +35,74 @@ public class TourService {
     private final TourMapper tourMapper;
 
     @Transactional(readOnly = true)
+    public PageResponseDto<TourResponseDto> getPublicPaged(
+            String title,
+            Long baseCityId,
+            int page,
+            int size
+    ) {
+        String titleFilter = title != null ? title.trim() : null;
+
+        var pageable = PageRequest.of(page, size, Sort.by("title").ascending());
+
+        Page<TourEntity> tours = tourRepository.searchPaged(
+                titleFilter,
+                baseCityId,
+                TourStatus.PUBLISHED,
+                true,
+                null,
+                pageable
+        );
+
+        return PageResponseDto.<TourResponseDto>builder()
+                .page(tours.getNumber())
+                .size(tours.getSize())
+                .totalPages(tours.getTotalPages())
+                .totalElements(tours.getTotalElements())
+                .content(tours.getContent().stream().map(tourMapper::toDto).toList())
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponseDto<TourResponseDto> getMyPaged(
+            String managerEmail,
+            String title,
+            Long baseCityId,
+            TourStatus status,
+            Boolean active,
+            int page,
+            int size
+    ) {
+        UserEntity manager = userRepository.findByEmail(managerEmail)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Пользователь не найден"));
+
+        if (manager.getUserRole() != UserRole.MANAGER) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Доступ только для менеджеров");
+        }
+
+        String titleFilter = title != null ? title.trim() : null;
+
+        var pageable = PageRequest.of(page, size, Sort.by("title").ascending());
+
+        Page<TourEntity> tours = tourRepository.searchPaged(
+                titleFilter,
+                baseCityId,
+                status,
+                active,
+                manager.getId(),
+                pageable
+        );
+
+        return PageResponseDto.<TourResponseDto>builder()
+                .page(tours.getNumber())
+                .size(tours.getSize())
+                .totalPages(tours.getTotalPages())
+                .totalElements(tours.getTotalElements())
+                .content(tours.getContent().stream().map(tourMapper::toDto).toList())
+                .build();
+    }
+
+    @Transactional(readOnly = true)
     public PageResponseDto<TourResponseDto> getAllPaged(
             String title,
             Long baseCityId,

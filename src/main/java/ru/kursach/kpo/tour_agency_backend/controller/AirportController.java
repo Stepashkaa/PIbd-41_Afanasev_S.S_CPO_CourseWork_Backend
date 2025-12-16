@@ -30,11 +30,11 @@ public class AirportController {
     public PageResponseDto<AirportResponseDto> getAllPaged(
             @RequestParam(name = "iata", required = false) String iata,
             @RequestParam(name = "name", required = false) String name,
-            @RequestParam(name = "cityName", required = false) String cityName,
+            @RequestParam(name = "cityId", required = false) Long cityId,
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = Constants.DEFAULT_PAGE_SIZE) int size
     ) {
-        return airportService.getAllPaged(iata, name, cityName, page, size);
+        return airportService.getAllPaged(iata, name, cityId, page, size);
     }
 
     @Operation(summary = "Найти аэропорт по точному IATA-коду")

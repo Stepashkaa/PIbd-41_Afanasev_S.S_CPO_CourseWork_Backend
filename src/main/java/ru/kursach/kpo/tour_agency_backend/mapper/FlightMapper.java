@@ -6,6 +6,9 @@ import ru.kursach.kpo.tour_agency_backend.dto.flight.FlightResponseDto;
 import ru.kursach.kpo.tour_agency_backend.dto.flight.FlightUpdateRequest;
 import ru.kursach.kpo.tour_agency_backend.model.entity.AirportEntity;
 import ru.kursach.kpo.tour_agency_backend.model.entity.FlightEntity;
+import ru.kursach.kpo.tour_agency_backend.model.entity.TourDepartureEntity;
+
+import java.util.List;
 
 @Component
 public class FlightMapper {
@@ -34,19 +37,23 @@ public class FlightMapper {
         entity.setBasePrice(request.basePrice());
     }
 
-    public FlightResponseDto toDto(FlightEntity entity) {
+    public FlightResponseDto toDto(FlightEntity flight) {
         return FlightResponseDto.builder()
-                .id(entity.getId())
-                .flightNumber(entity.getFlightNumber())
-                .carrier(entity.getCarrier())
-                .departAt(entity.getDepartAt())
-                .arriveAt(entity.getArriveAt())
-                .status(entity.getStatus())
-                .basePrice(entity.getBasePrice())
-                .departureAirportId(entity.getDepartureAirport().getId())
-                .departureAirportName(entity.getDepartureAirport().getName())
-                .arrivalAirportId(entity.getArrivalAirport().getId())
-                .arrivalAirportName(entity.getArrivalAirport().getName())
+                .id(flight.getId())
+                .flightNumber(flight.getFlightNumber())
+                .carrier(flight.getCarrier())
+                .departAt(flight.getDepartAt())
+                .arriveAt(flight.getArriveAt())
+                .status(flight.getStatus())
+                .basePrice(flight.getBasePrice())
+                .departureAirportId(flight.getDepartureAirport().getId())
+                .departureAirportName(flight.getDepartureAirport().getName())
+                .arrivalAirportId(flight.getArrivalAirport().getId())
+                .arrivalAirportName(flight.getArrivalAirport().getName())
+                .tourDepartureIds(
+                        flight.getTourDepartures() == null ? List.of() :
+                                flight.getTourDepartures().stream().map(TourDepartureEntity::getId).toList()
+                )
                 .build();
     }
 }
