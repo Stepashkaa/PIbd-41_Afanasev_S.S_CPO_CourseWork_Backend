@@ -81,8 +81,14 @@ public class SecurityConfig {
 
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/bookings/my/*/cancel").hasAnyRole("USER","MANAGER","ADMIN")
 
+                        // recommendations / tracking (auth required)
+                        .requestMatchers(HttpMethod.POST, "/api/v1/user-searches").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/tour-views/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/recommendations/my/paged").authenticated()
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/recommendations/**").authenticated()
 
-        // туры и вылеты туров — админ + менеджер
+
+                        // туры и вылеты туров — админ + менеджер
                         //.requestMatchers("/api/v1/tours/**").hasAnyRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/v1/tour-departures/**").hasAnyRole("USER","MANAGER","ADMIN")
 
@@ -140,7 +146,8 @@ public class SecurityConfig {
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider(userDetailsService);
+        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+        authProvider.setUserDetailsService(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder());
         return authProvider;
     }

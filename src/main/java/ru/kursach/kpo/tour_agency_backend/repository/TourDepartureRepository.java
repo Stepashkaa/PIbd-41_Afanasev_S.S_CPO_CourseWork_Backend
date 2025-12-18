@@ -73,4 +73,28 @@ public interface TourDepartureRepository extends JpaRepository<TourDepartureEnti
             @Param("startTo") LocalDate startTo,
             Pageable pageable
     );
+
+    @Query("""
+      select d
+      from TourDepartureEntity d
+      join d.tour t
+      where t.status = 'PUBLISHED'
+        and t.active = true
+        and d.status = 'PLANNED'
+        and d.startDate >= :today
+        and (d.capacityTotal - d.capacityReserved) > 0
+    """)
+    Page<TourDepartureEntity> findCandidates(@Param("today") LocalDate today, Pageable pageable);
+
+    @Query("""
+    select case when count(d) > 0 then true else false end
+    from TourDepartureEntity d
+    join d.flights f
+    join f.arrivalAirport aa
+    join aa.city c
+    where d.id = :departureId
+      and c.id = :cityId
+""")
+    boolean existsByIdAndArrivalCity(@Param("departureId") Long departureId,
+                                     @Param("cityId") Long cityId);
 }

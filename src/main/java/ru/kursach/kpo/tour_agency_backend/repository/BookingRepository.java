@@ -10,6 +10,7 @@ import ru.kursach.kpo.tour_agency_backend.model.entity.BookingEntity;
 import ru.kursach.kpo.tour_agency_backend.model.enums.BookingStatus;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Repository
 public interface BookingRepository extends JpaRepository<BookingEntity, Long> {
@@ -31,4 +32,6 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long> {
             @Param("createdTo") LocalDateTime createdTo,
             Pageable pageable
     );
+
+    List<BookingEntity> findTop10ByUser_IdOrderByCreatedAtDesc(Long userId);
 }
